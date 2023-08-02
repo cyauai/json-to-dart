@@ -1,10 +1,15 @@
 "use client";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import jsonToDartClass, { Data } from "@/utils/json_convertor/json_convertor";
+import jsonToDartClass, {
+  CurrentData,
+  Data,
+  convertToListData,
+} from "@/utils/json_convertor/json_convertor";
 import { useEffect, useState } from "react";
 
 enum SwitchId {
@@ -16,27 +21,46 @@ enum SwitchId {
 }
 
 export default function Home() {
-  const [data, setData] = useState<Data>({
+  const emptyData = {
     className: undefined,
-    json: "",
-    result: "",
     copyWith: true,
     toJson: true,
     fromJson: true,
     toString: true,
     equatable: true,
+  };
+  const [data, setData] = useState<Data>(emptyData);
+
+  const [result, setResult] = useState<string>("");
+
+  const [currentData, setCurrentData] = useState<CurrentData>({
+    currentIndex: -1,
+    listOfJson: [],
+    listOfKeys: [],
   });
 
-  useEffect(() => {
-    handleConvertClick(data.json);
-  }, [data]);
+  const [text, setText] = useState<string>("");
 
-  function handleConvertClick(text: string) {
+  // useEffect(() => {
+  //   handleConvert();
+  // }, [currentData]);
+
+  function handleConvert(currentIndex?: number) {
     if (isValidJson(text)) {
-      setData((prevValue) => ({
-        ...prevValue,
-        result: jsonToDartClass(data),
-      }));
+      const tempData = convertToListData(text, currentIndex);
+      setCurrentData(tempData);
+      setResult(
+        jsonToDartClass(
+          {
+            ...data,
+            className: tempData.listOfKeys[tempData.currentIndex].replace(
+              ".dart",
+              ""
+            ),
+          },
+          tempData.listOfJson[tempData.currentIndex]
+        )
+      );
     }
   }
 
@@ -52,7 +76,7 @@ export default function Home() {
     <div className="flex flex-row h-screen">
       <div className="w-[20%]">
         {/* Control Panel */}
-        <Input
+        {/* <Input
           placeholder="Class name (Optional)"
           onChange={(event) => {
             setData((prevData) => ({
@@ -60,7 +84,7 @@ export default function Home() {
               className: event.target.value,
             }));
           }}
-        />
+        /> */}
         <div className="flex items-center space-x-2 mt-4">
           {/* <Switch
             id={SwitchId.toJsonMethodId.toString()}
@@ -137,30 +161,56 @@ export default function Home() {
           </Label>
         </div>
       </div>
-      <div className="w-[40%] bg-green-300">
+      <div className="w-[40%]">
         {/* Text Area */}
         <Textarea
           className="h-[80%]"
           onChange={(event) => {
-            setData((prevData) => ({
-              ...prevData,
-              json: event.target.value,
-            }));
+            setText(event.target.value);
           }}
         />
 
         <Button
           onClick={() => {
-            handleConvertClick(data.json);
+            setCurrentData((prevData) => ({
+              ...prevData,
+              currentIndex: 0,
+            }));
+            handleConvert();
           }}
         >
           Convert
         </Button>
       </div>
-      <div className="w-[40%] bg-blue-300 whitespace-pre-wrap">
+      <div className="w-[40%] bg-blue-200 whitespace-pre-wrap">
         {/* Display Area */}
-        <Textarea className="h-screen" readOnly defaultValue={data.result} />
-        {/* {data.result} */}
+        <Textarea className="h-[70%]" readOnly defaultValue={result} />
+        <Button
+          className="my-2"
+          onClick={() => {
+            navigator.clipboard.writeText(result);
+          }}
+        >
+          Copy
+        </Button>
+        <div className="flex flex-wrap  items-start">
+          {currentData.listOfJson &&
+            currentData.listOfKeys.map((key, index) => (
+              <Badge
+                className="cursor-pointer mx-2 my-2"
+                onClick={() => {
+                  setCurrentData((prevData) => ({
+                    ...prevData,
+                    currentIndex: index,
+                  }));
+                  handleConvert(index);
+                }}
+                key={`${key}-${index}`}
+              >
+                {key}
+              </Badge>
+            ))}
+        </div>
       </div>
     </div>
   );

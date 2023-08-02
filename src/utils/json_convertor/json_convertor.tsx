@@ -3,8 +3,6 @@ type JsonType = {
 };
 export type Data = {
   className: string | undefined;
-  json: string;
-  result: string;
   copyWith: boolean;
   toJson: boolean;
   fromJson: boolean;
@@ -12,12 +10,22 @@ export type Data = {
   equatable: boolean;
 };
 
+export type CurrentData = {
+  currentIndex: number;
+  listOfJson: any[];
+  listOfKeys: string[];
+};
+
 function convertToUnderscore(str: string): string {
   let result = "";
   for (let i = 0; i < str.length; i++) {
     if (i === 0) {
       result += str[i].toLowerCase();
-    } else if (str[i] === str[i].toUpperCase()) {
+    } else if (
+      str[i] === str[i].toUpperCase() &&
+      str[i] !== "_" &&
+      !["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].includes(str[i])
+    ) {
       result += "_" + str[i].toLowerCase();
     } else {
       result += str[i];
@@ -50,8 +58,9 @@ function getDartType(value: any, key: string): string {
 //   return type === "number" || type === "bool" || type === "String" || type.startsWith("List") || type === "number" ||
 // }
 
-export default function jsonToDartClass(data: Data) {
-  const json: JsonType = JSON.parse(data.json);
+export default function jsonToDartClass(data: Data, jsonStr: any) {
+  console.log(data);
+  const json = jsonStr;
   const classType = data.className === undefined ? "Response" : data.className;
 
   let dartClass = `part '${convertToUnderscore(
@@ -106,8 +115,6 @@ export default function jsonToDartClass(data: Data) {
 
   // END
   dartClass += "}";
-
-  console.log(dartClass);
 
   return dartClass;
 }
@@ -165,4 +172,54 @@ function getProps(json: any): string {
   result += `\t];\n\n`;
 
   return result;
+}
+
+export function convertToListData(
+  jsonText: string,
+  currentIndex?: number
+): CurrentData {
+  const json: JsonType = JSON.parse(jsonText);
+  let temp: JsonType = {};
+  temp["json"] = json;
+  let result: CurrentData = {
+    currentIndex: currentIndex === undefined ? 0 : currentIndex,
+    listOfJson: [temp["json"]],
+    listOfKeys: ["response.dart"],
+  };
+  const filteredJson = filterJson(json);
+  result.listOfJson.push(...filteredJson.map((value) => value.json));
+  result.listOfKeys.push(...filteredJson.map((value) => value.name));
+  return result;
+}
+
+type FilteredJson = {
+  name: string;
+  json: string;
+};
+
+function filterJson(json: JsonType): FilteredJson[] {
+  const filteredJson: FilteredJson[] = [];
+  for (const key in json) {
+    if (json.hasOwnProperty(key)) {
+      const value = json[key];
+      if (typeof value === "object") {
+        filteredJson.push(...filterJson(value));
+      }
+      if (
+        typeof value !== "boolean" &&
+        typeof value !== "number" &&
+        typeof value !== "string" &&
+        !Array.isArray(value) &&
+        typeof value[0] !== "boolean" &&
+        typeof value[0] !== "number" &&
+        typeof value[0] !== "string"
+      ) {
+        filteredJson.push({
+          name: `${convertToUnderscore(key)}.dart`,
+          json: value,
+        });
+      }
+    }
+  }
+  return filteredJson;
 }
